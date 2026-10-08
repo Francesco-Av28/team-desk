@@ -12,6 +12,8 @@ BIN = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
 TEAM_ENV = {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"}
 LEAD_SETTINGS = {"teammateMode": "tmux"}
 MAIN_PANE_WIDTH = "60%"
+LAYOUT_HOOK = ('if-shell -F "#{&&:#{!=:#{window_layout},#{@td_layout}},#{!=:#{window_zoomed_flag},1}}" '
+               '"select-layout main-vertical ; set-option -w @td_layout \\"#{window_layout}\\""')
 
 
 class TmuxError(RuntimeError):
@@ -62,7 +64,9 @@ def up(project_dir, model="opus"):
     # (Ctrl+Z), the shell is still there to run `fg` or restart it.
     run("new-session", "-d", "-s", name, "-c", os.path.abspath(project_dir), *env, "-x", "200", "-y", "50")
     run("set-option", "-w", "-t", name, "main-pane-width", MAIN_PANE_WIDTH)
-    run("set-hook", "-t", name, "after-split-window", "select-layout main-vertical")
+    # Claude Code lays out teammate panes itself; snap back to "lead on the left" whenever the layout
+    # changes (not while a pane is zoomed). @td_layout stops the hook from re-triggering itself.
+    run("set-hook", "-t", name, "window-layout-changed", LAYOUT_HOOK)
     run("send-keys", "-t", f"{name}:0.0", lead_command(model), "Enter")
     return name, True
 

@@ -37,6 +37,12 @@ class CostTest(unittest.TestCase):
         self.write(os.path.join("s1", "subagents", "agent-x.jsonl"), [line(self.recent, model="claude-haiku-4-5", inp=500)])
         with open(os.path.join(self.tdir, "s1", "subagents", "agent-x.meta.json"), "w") as f:
             json.dump({"name": "scout"}, f)
+        os.makedirs(os.path.join(self.tdir, "s2", "subagents"))
+        with open(os.path.join(self.tdir, "s2", "subagents", "agent-y.jsonl"), "w") as f:
+            f.write(line(self.recent, model="claude-haiku-4-5", inp=100) + "\n")
+        with open(os.path.join(self.tdir, "s2", "subagents", "agent-y.meta.json"), "w") as f:
+            json.dump({"agentType": "td-writer"}, f)
+        self.write("named-lead.jsonl", [line(self.recent, cr=10, agent="team-lead")])
 
     def tearDown(self):
         self.patch.stop()
@@ -49,9 +55,10 @@ class CostTest(unittest.TestCase):
     def test_weighting_and_grouping(self):
         rep = C.report(self.proj, all_sessions=True)
         rows = {r["name"]: r for r in rep["rows"]}
-        self.assertEqual(set(rows), {"lead", "build", "research", "scout"})
+        self.assertEqual(set(rows), {"lead", "build", "research", "scout", "writer"})
+        self.assertEqual(rows["lead"]["sessions"], 2)  # "team-lead" is the lead
         self.assertEqual(rows["build"]["turns"], 2)
-        self.assertAlmostEqual(C.weighted(rows["lead"]), 1_000_000 * 0.1 + 10_000 * 5)
+        self.assertAlmostEqual(C.weighted(rows["lead"]), 1_000_000 * 0.1 + 10_000 * 5 + 10 * 0.1)
         self.assertAlmostEqual(C.weighted(rows["build"]), 200_000 * 0.1 + 8_000 * 1.25)
         self.assertEqual(rep["rows"][0]["name"], "research")  # biggest first
 
@@ -62,7 +69,7 @@ class CostTest(unittest.TestCase):
         self.assertNotIn("research", {r["name"] for r in rep["rows"]})
 
     def test_thresholds_and_render(self):
-        rep = C.report(self.proj, since_hours=1)  # 150k + 30k + 500 = 180.5k weighted
+        rep = C.report(self.proj, since_hours=1)  # 150k + 30k + 500 + 100 + 1 ≈ 180.6k weighted
         budget = {**R.DEFAULT_BUDGET, "total_tokens": 300_000}
         self.assertEqual(C.threshold_hit(rep, budget), 0.5)
         self.assertIsNone(C.threshold_hit(rep, {**budget, "total_tokens": 10_000_000}))

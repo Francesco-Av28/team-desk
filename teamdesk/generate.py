@@ -126,6 +126,8 @@ def lead_rules(roster):
         *rows,
         "",
         "### Rules",
+        "- Run members as agent-team teammates (create the team, then one teammate per member, each in its own "
+        "tmux pane), not as background subagents.",
         "- Spawn teammates ONLY with the agent types above (`subagent_type` = agent type). "
         "Never spawn `general-purpose` or ad-hoc teammates: they inherit your model and your cost.",
         f"- At most {b['max_active']} teammates active at once. Start a member only when every member in its "

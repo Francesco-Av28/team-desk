@@ -55,7 +55,8 @@ def read_transcript(path):
     if os.path.exists(meta):
         try:
             with open(meta, encoding="utf-8") as f:
-                t["name"] = json.load(f).get("name")
+                meta_data = json.load(f)
+                t["name"] = meta_data.get("name") or meta_data.get("agentType")
         except (OSError, ValueError):
             pass
     with open(path, encoding="utf-8", errors="replace") as f:
@@ -81,6 +82,8 @@ def read_transcript(path):
             for k in WEIGHTS:
                 t[k] += usage.get(k) or 0
     t["name"] = t["name"] or "lead"
+    if t["name"] == "team-lead":  # the session name team-desk gives the lead
+        t["name"] = "lead"
     return t
 
 
