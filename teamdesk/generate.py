@@ -1,5 +1,6 @@
 """Turn a normalised roster into Claude Code files: agents, lead rules, state dirs."""
 
+import json
 import os
 
 from . import roster as R
@@ -7,6 +8,7 @@ from . import roster as R
 AGENT_PREFIX = "td-"
 BLOCK_START = "<!-- team-desk:start (generated, edit team.json instead) -->"
 BLOCK_END = "<!-- team-desk:end -->"
+GUARD = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "hooks", "guard_owns.py")
 
 
 def agent_name(member):
@@ -71,6 +73,32 @@ def agent_markdown(member, roster):
         "",
     ]
     return "\n".join(lines)
+
+
+GUARD_MATCHER = "Write|Edit|MultiEdit|NotebookEdit"
+
+
+def guard_command():
+    return f'python3 "{GUARD}"'
+
+
+def install_guard(project_dir):
+    """Add (once) the owns guard as a PreToolUse hook in .claude/settings.json, keeping other settings."""
+    path = os.path.join(project_dir, ".claude", "settings.json")
+    data = {}
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    pre = data.setdefault("hooks", {}).setdefault("PreToolUse", [])
+    for entry in pre:  # drop our previous entry (the repo path may have moved)
+        entry["hooks"] = [h for h in entry.get("hooks", []) if "guard_owns.py" not in h.get("command", "")]
+    pre[:] = [e for e in pre if e.get("hooks")]
+    pre.append({"matcher": GUARD_MATCHER, "hooks": [{"type": "command", "command": guard_command()}]})
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+    return path
 
 
 def first_line(text):
@@ -151,5 +179,7 @@ def generate(roster, project_dir="."):
     claude_md = os.path.join(project_dir, "CLAUDE.md")
     upsert_block(claude_md, lead_rules(roster))
     written.append(claude_md)
+    if any(m["owns"] for m in roster["members"]):
+        written.append(install_guard(project_dir))
     os.makedirs(os.path.join(project_dir, R.STATE_DIR, "status"), exist_ok=True)
     return written
