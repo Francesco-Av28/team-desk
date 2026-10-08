@@ -50,6 +50,9 @@ def cmd_up(a):
     r = R.load(a.dir)
     G.generate(r, a.dir)
     name, created = T.up(a.dir, r["leader"]["model"])
+    if created:
+        from . import cost
+        cost.mark_run_start(a.dir)
     print(("started" if created else "already running") + f": {name} (lead: {r['leader']['model']})")
     if a.no_attach:
         print(f"attach with: {T.attach_hint(name)}")
@@ -77,10 +80,13 @@ def cmd_status(a):
 
 def cmd_cost(a):
     from . import cost
-    r = R.load(a.dir)
-    rep = cost.report(a.dir, since_hours=a.hours)
-    print(cost.render(rep, r["budget"], short=a.short))
-    level = cost.threshold_hit(rep, r["budget"])
+    try:
+        budget = R.load(a.dir)["budget"]
+    except R.RosterError:
+        budget = dict(R.DEFAULT_BUDGET)  # cost works on any project, even without team.json
+    rep = cost.report(a.dir, since_hours=a.hours, all_sessions=a.all)
+    print(cost.render(rep, budget, short=a.short))
+    level = cost.threshold_hit(rep, budget)
     return 2 if level is not None else 0
 
 
@@ -121,6 +127,7 @@ def main(argv=None):
 
     s = sub.add_parser("cost", help="tokens per member and budget used (exit 2 past a checkpoint)")
     s.add_argument("--hours", type=float, default=None, help="only sessions active in the last N hours")
+    s.add_argument("--all", action="store_true", help="every session of the project, not just since the last up")
     s.add_argument("--short", action="store_true")
     s.set_defaults(fn=cmd_cost)
     s = sub.add_parser("dash", help="separate tmux session with live status + cost")

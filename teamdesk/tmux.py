@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import time
 
+BIN = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bin", "team-desk")
 TEAM_ENV = {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"}
 LEAD_SETTINGS = {"teammateMode": "tmux"}
 MAIN_PANE_WIDTH = "60%"
@@ -100,7 +101,8 @@ def dash(project_dir, interval=30):
     require_tmux()
     name = session_name(project_dir, dash=True)
     if not exists(name):
-        loop = (f"while true; do clear; team-desk status; echo; team-desk cost --short; "
+        td = shlex.quote(BIN)
+        loop = (f"while true; do clear; {td} status; echo; {td} cost --short; "
                 f"echo; date '+updated %H:%M:%S (every {interval}s, Ctrl+C to stop)'; sleep {interval}; done")
         run("new-session", "-d", "-s", name, "-c", os.path.abspath(project_dir))
         run("send-keys", "-t", f"{name}:0.0", loop, "Enter")
