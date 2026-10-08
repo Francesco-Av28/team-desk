@@ -27,12 +27,14 @@ def cmd_gen(a):
 
 def cmd_init(a):
     path = os.path.join(a.dir, R.ROSTER_FILE)
-    if os.path.exists(path):
+    if os.path.exists(path) and not (a.propose and a.dry_run):
         return cmd_gen(a)
     if a.propose:
         from . import propose
         data = propose.propose(a.dir)
         print(propose.describe(data))
+        if a.dry_run:
+            return
         if not a.yes and input("\nWrite team.json with this team? [y/N] ").strip().lower() != "y":
             print("nothing written. Edit the proposal with /team-desk inside Claude Code, or rerun.")
             return
@@ -111,6 +113,7 @@ def main(argv=None):
 
     s = sub.add_parser("init", help="create team.json (with --propose) and generate agents + lead rules")
     s.add_argument("--propose", action="store_true", help="scan project and skills, propose a team")
+    s.add_argument("--dry-run", action="store_true", help="with --propose: print the proposal, write nothing")
     s.add_argument("-y", "--yes", action="store_true")
     s.set_defaults(fn=cmd_init)
     sub.add_parser("check", help="validate team.json").set_defaults(fn=cmd_check)
