@@ -55,7 +55,8 @@ def up(project_dir, model="opus"):
     if exists(name):
         return name, False
     env = []
-    for k, v in TEAM_ENV.items():
+    passthrough = {k: v for k, v in os.environ.items() if k.startswith("TEAMDESK_")}
+    for k, v in {**TEAM_ENV, **passthrough}.items():
         env += ["-e", f"{k}={v}"]
     # The pane runs a login shell, and the lead is typed into it: if Claude exits or is suspended
     # (Ctrl+Z), the shell is still there to run `fg` or restart it.

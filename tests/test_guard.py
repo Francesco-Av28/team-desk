@@ -41,6 +41,14 @@ class GuardTest(unittest.TestCase):
             with self.subTest(p=p):
                 self.assertEqual(self.run_hook("build", "Edit", p), 2)
 
+    def test_absolute_owns_outside_project(self):
+        outside = os.path.join(self.tmp.name + "-app", "web").replace(os.sep, "/")
+        with open(os.path.join(self.root, "team.json"), "w") as f:
+            json.dump({"members": [{"name": "build", "work": "code", "role": "x", "owns": [outside + "/**"]}]}, f)
+        self.assertEqual(self.run_hook("build", "Write", outside + "/app/page.tsx"), 0)
+        self.assertEqual(self.run_hook("build", "Write", outside + "x/page.tsx"), 2)
+        self.assertEqual(self.run_hook("build", "Write", "docs/x.md"), 2)
+
     def test_ignores_reads_and_unrestricted_members(self):
         self.assertEqual(self.run_hook("build", "Read", "docs/x.md"), 0)
         self.assertEqual(self.run_hook("free", "Write", "anything.md"), 0)

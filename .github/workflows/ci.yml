@@ -1,0 +1,29 @@
+name: CI
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.9", "3.12"]
+        exclude:
+          - os: macos-latest
+            python: "3.9"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v
+      - name: CLI smoke test
+        run: |
+          mkdir -p /tmp/smoke && cd /tmp/smoke
+          cp "$GITHUB_WORKSPACE/examples/chess-clone/team.json" .
+          "$GITHUB_WORKSPACE/bin/team-desk" check
+          "$GITHUB_WORKSPACE/bin/team-desk" gen
+          "$GITHUB_WORKSPACE/bin/team-desk" status
+          test -f .claude/agents/td-build.md

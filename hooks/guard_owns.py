@@ -44,6 +44,16 @@ def allowed(rel_path, member, owns):
     return False
 
 
+def log(event, member, decision):
+    """Optional audit trail: set TEAMDESK_GUARD_LOG=/path/to/file."""
+    path = os.environ.get("TEAMDESK_GUARD_LOG")
+    if path:
+        target = (event.get("tool_input") or {}).get("file_path", "")
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps({"agent_type": event.get("agent_type"), "member": member,
+                                "tool": event.get("tool_name"), "path": target, "decision": decision}) + "\n")
+
+
 def main(argv, stdin):
     try:
         event = json.load(stdin)
@@ -51,6 +61,13 @@ def main(argv, stdin):
         return 0
     agent_type = event.get("agent_type") or ""
     member = argv[1] if len(argv) > 1 else (agent_type[3:] if agent_type.startswith("td-") else "")
+    code = decide(event, member)
+    if event.get("tool_name") in WRITE_TOOLS:
+        log(event, member, "block" if code == 2 else "allow")
+    return code
+
+
+def decide(event, member):
     if not member:
         return 0
     if event.get("tool_name") not in WRITE_TOOLS:
@@ -68,8 +85,14 @@ def main(argv, stdin):
     owns = next((m.get("owns", []) for m in members if m.get("name") == member), None)
     if not owns:
         return 0
-    rel = os.path.relpath(os.path.abspath(os.path.join(root, target)), os.path.abspath(root))
-    if not rel.startswith("..") and allowed(rel, member, owns):
+    absolute = os.path.abspath(os.path.join(root, target)).replace(os.sep, "/")
+    rel = os.path.relpath(absolute, os.path.abspath(root)).replace(os.sep, "/")
+    relative_owns = [p for p in owns if not os.path.isabs(p)]
+    absolute_owns = [p for p in owns if os.path.isabs(p)]  # e.g. app code kept outside the project
+    if not rel.startswith("..") and allowed(rel, member, relative_owns):
+        return 0
+    if any(glob_to_regex(p.rstrip("/")).match(absolute) or absolute == p.rstrip("/")[:-3]
+           for p in absolute_owns):
         return 0
     sys.stderr.write(
         f"team-desk: '{member}' may only write inside {', '.join(owns)} "

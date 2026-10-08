@@ -1,0 +1,19 @@
+{
+  "project": "chess-clone",
+  "leader": {"model": "opus"},
+  "budget": {"total_tokens": 5000000, "max_active": 2, "checkpoints": [0.5, 0.8], "max_turns": 25, "max_fetches": 10},
+  "members": [
+    {"name": "recon", "work": "research", "skill": "replica-recon",
+     "role": "Map the public UI only: screens, flows, components, inferred data model. No pricing, reviews or positioning.",
+     "owns": ["replica/recon/**"]},
+    {"name": "design", "work": "design", "skill": "replica-design", "after": ["recon"],
+     "inputs": ["replica/recon-map.md", "replica/architecture.md"], "max_fetches": 0,
+     "owns": ["replica/design/**"]},
+    {"name": "build", "work": "code", "skill": "replica-build", "after": ["design"],
+     "role": "Build only the first slice: sign-up -> live game -> free game review. Run the real build before reporting.",
+     "inputs": ["replica/architecture.md", "replica/schema.sql", "replica/design/components.md"], "max_fetches": 5,
+     "owns": ["/mnt/c/CLAUDE_LOCAL/chess-clone/web/**", "replica/build/**"]},
+    {"name": "test", "work": "review", "skill": "replica-test", "after": ["build"], "max_fetches": 0,
+     "owns": ["replica/test/**", "/mnt/c/CLAUDE_LOCAL/chess-clone/web/tests/**"]}
+  ]
+}

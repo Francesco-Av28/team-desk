@@ -28,7 +28,7 @@ class CostTest(unittest.TestCase):
         self.tdir = C.transcript_dir(self.proj)
         os.makedirs(os.path.join(self.tdir, "s1", "subagents"))
         now = datetime.now(timezone.utc)
-        self.recent = now.isoformat().replace("+00:00", "Z")
+        self.recent = (now - timedelta(minutes=1)).isoformat().replace("+00:00", "Z")
         self.old = (now - timedelta(days=2)).isoformat().replace("+00:00", "Z")
         self.write("lead.jsonl", [line(self.recent, cr=1_000_000, out=10_000)])
         self.write("b.jsonl", [line(self.recent, model="claude-sonnet-5-5", cr=100_000, cw=8_000, agent="td-build"),
