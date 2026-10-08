@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# team-desk launcher: runs the Python package that lives next to this script (resolves symlinks).
+set -euo pipefail
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+ROOT="$(dirname "$(dirname "$SELF")")"
+PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m teamdesk "$@"
