@@ -76,9 +76,32 @@ Lo schema completo, con un esempio, è nel [README inglese](README.md#teamjson).
 `total_tokens` è in **token pesati**: input 1×, lettura da cache 0,1×, scrittura in cache 1,25×, output 5× (i rapporti
 di prezzo di Anthropic). Misura la spesa relativa, vale sia per l'API sia per gli abbonamenti; non è un importo in euro.
 
-## Limiti (v0.1)
+## Regime globale (v0.2): tutti i subagent, tutti i progetti
 
-- Il tetto di turni usa il campo `maxTurns` degli agenti; il tetto di ricerche web e il divieto di scraping sono istruzioni, non blocchi tecnici.
+`team-desk global init` mette tutti i subagent sotto un unico regime stretto, anche fuori da tmux e dagli agent team:
+
+| Pezzo | Cosa fa |
+|---|---|
+| `~/.claude/team-desk/rules.json` | Un solo file di regole: tipi di agente ammessi, domini vietati, tre profili con i loro limiti |
+| `~/.claude/agents/td-research.md`, `td-doc.md`, `td-code.md` | Agenti governati: ricerca (Haiku, web, scrive solo in `tmp/`), documenti (Sonnet, niente web, `tmp/`), codice (Opus, niente web, file del progetto) |
+| `hooks/td_guard.py` come hook globale `PreToolUse` | Applicato a ogni chiamata: si possono avviare solo agenti `td-*` (il `general-purpose` viene rifiutato); per ogni agente: strumenti ammessi, max 40 azioni, max 15 ricerche web (ricerca), domini vietati, niente comandi di rete senza accesso web, perimetro di scrittura, percorsi protetti (`.claude/`, `.git/`, `.env`) |
+| `team-desk cost --global` | Turni e token di ogni subagent in ogni progetto; segnala chi supera 40 turni o 1,5M token pesati, o non è governato |
+
+```bash
+team-desk global init -y      # regole + agenti + hook in ~/.claude/settings.json (con backup)
+team-desk global status       # profili, hook, chiamate bloccate oggi
+team-desk global off | on     # interruttore (anche: TEAMDESK_OFF=1)
+team-desk global remove       # toglie l'hook, tiene regole e agenti
+team-desk cost --global --hours 24
+```
+
+I membri di progetto (`td-<nome>` in `team.json`) tengono i loro strumenti e `max_fetches` e in più ricevono i limiti globali.
+I limiti si contano per agente (`agent_id` nell'evento dell'hook). Dopo `init` riavvia le sessioni aperte: gli hook si leggono all'avvio.
+
+## Limiti
+
+- v0.1 (solo team di progetto): tetto di ricerche e divieto di scraping erano istruzioni; con il regime globale v0.2 li applica l'hook.
+- I turni sono limitati dal campo `maxTurns` degli agenti; l'hook limita le chiamate agli strumenti (azioni). Una chiamata consentita dall'hook ma poi negata dai permessi viene comunque contata.
 - L'hook `owns` controlla i tool che scrivono file (Write, Edit, MultiEdit, NotebookEdit), non i comandi da shell.
 - Negli ultimi test (Claude Code 2.1.293) gli hook scritti dentro il file di un agente non venivano eseguiti: per questo il controllo è un hook di progetto.
 - Gli agent team sono una funzione sperimentale di Claude Code e il comportamento può cambiare tra versioni.

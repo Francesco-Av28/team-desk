@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.0 - 2026-10-09
+
+Global regime for every subagent, in every project.
+
+- `team-desk global init | status | on | off | remove`: one rules file (`~/.claude/team-desk/rules.json`), three governed agents in `~/.claude/agents/` (td-research on Haiku, td-doc on Sonnet, td-code on Opus) and a global `PreToolUse` hook, installed with a backup of `settings.json`.
+- `hooks/td_guard.py`: refuses spawning non-`td-*` agents (e.g. `general-purpose`); per agent (by `agent_id`) enforces tool allowlist, 40 actions, 15 web calls for research, blocked domains (LinkedIn & co.), no network commands without web access, write scope (`tmp/` or project) and protected paths. Kill switch: `TEAMDESK_OFF=1` or `enabled: false`. Errors in the guard never block work.
+- `team-desk cost --global`: turns and tokens of every subagent in every project, with alerts.
+- Tested live with `claude -p` (Claude Code 2.1.295): general-purpose refused, LinkedIn blocked, web limit hit, writes outside `tmp/` blocked.
+
 ## 0.1.0 - 2026-10-08
 
 First release.

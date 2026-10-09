@@ -82,6 +82,10 @@ def cmd_status(a):
 
 def cmd_cost(a):
     from . import cost
+    if a.glob:
+        rep = cost.global_report(hours=a.hours or 24)
+        print(cost.render_global(rep))
+        return 2 if any(t["alert"] for t in rep["rows"]) else 0
     try:
         budget = R.load(a.dir)["budget"]
     except R.RosterError:
@@ -98,6 +102,24 @@ def cmd_dash(a):
         print(f"dashboard: {name}; attach with: {T.attach_hint(name)}")
         return
     os.execvp("tmux", ["tmux", *T.attach_hint(name).split()[1:]])
+
+
+def cmd_global(a):
+    from . import globalinstall as GI
+    if a.action == "init":
+        if not a.yes and input("Install the global regime (rules, td-* agents, hook in ~/.claude/settings.json "
+                               "with backup)? [y/N] ").strip().lower() != "y":
+            return 1
+        print(GI.init())
+    elif a.action == "on":
+        print(GI.set_enabled(True))
+    elif a.action == "off":
+        print(GI.set_enabled(False))
+    elif a.action == "remove":
+        p = GI.remove_hook()
+        print(f"hook removed from {p} (rules and agents kept)" if p else "hook was not installed")
+    else:
+        print(GI.status())
 
 
 def cmd_tmux_conf(a):
@@ -132,11 +154,16 @@ def main(argv=None):
     s.add_argument("--hours", type=float, default=None, help="only sessions active in the last N hours")
     s.add_argument("--all", action="store_true", help="every session of the project, not just since the last up")
     s.add_argument("--short", action="store_true")
+    s.add_argument("--global", dest="glob", action="store_true", help="every subagent in every project (default 24 h)")
     s.set_defaults(fn=cmd_cost)
     s = sub.add_parser("dash", help="separate tmux session with live status + cost")
     s.add_argument("--interval", type=int, default=30)
     s.add_argument("--no-attach", action="store_true")
     s.set_defaults(fn=cmd_dash)
+    s = sub.add_parser("global", help="global regime for every subagent: init | status | on | off | remove")
+    s.add_argument("action", nargs="?", default="status", choices=["init", "status", "on", "off", "remove"])
+    s.add_argument("-y", "--yes", action="store_true")
+    s.set_defaults(fn=cmd_global)
     s = sub.add_parser("tmux-conf", help="show (or with -y install, with backup) the recommended tmux config")
     s.add_argument("-y", "--yes", action="store_true")
     s.set_defaults(fn=cmd_tmux_conf)

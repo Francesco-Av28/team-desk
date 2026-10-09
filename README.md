@@ -109,9 +109,32 @@ team-desk up
 
 The lead runs inside a shell, not as the pane's command: if Claude exits or is suspended, the shell is still there.
 
-## Limits (v0.1)
+## Global regime (v0.2): every subagent, every project
 
-- Turn limits rely on the agent `maxTurns` field; fetch limits and "no scraping" are instructions, not enforced.
+`team-desk global init` puts all subagents under one strict regime, also outside tmux and agent teams:
+
+| Piece | What it does |
+|---|---|
+| `~/.claude/team-desk/rules.json` | One rules file: allowed agent types, blocked domains, three profiles with limits |
+| `~/.claude/agents/td-research.md`, `td-doc.md`, `td-code.md` | Governed agents: research (Haiku, web, writes only in `tmp/`), doc (Sonnet, no web, `tmp/`), code (Opus, no web, project files) |
+| `hooks/td_guard.py` as a global `PreToolUse` hook | Enforced on every tool call: only `td-*` agents may be spawned (`general-purpose` is refused); per agent: tool allowlist, max 40 actions, max 15 web calls (research), blocked domains, no network commands without web access, write scope, protected paths (`.claude/`, `.git/`, `.env`) |
+| `team-desk cost --global` | Turns and tokens of every subagent in every project; flags agents over 40 turns, over 1.5M weighted tokens, or not governed |
+
+```bash
+team-desk global init -y      # rules + agents + hook in ~/.claude/settings.json (backup kept)
+team-desk global status       # profiles, hook, today's blocked calls
+team-desk global off | on     # kill switch (also: TEAMDESK_OFF=1)
+team-desk global remove       # remove the hook, keep rules and agents
+team-desk cost --global --hours 24
+```
+
+Project members (`td-<name>` from `team.json`) keep their own tools and `max_fetches` and also get the global limits.
+Limits are counted per agent (`agent_id` in the hook event). Restart open Claude Code sessions after `init`: hooks are read at startup.
+
+## Limits
+
+- v0.1 (project teams only): fetch limits and "no scraping" were instructions; with the v0.2 global regime they are enforced by the hook.
+- Turns are capped by the agent `maxTurns` field; the hook caps tool calls (actions). A call that the hook allows but the permission system then denies still counts.
 - The `owns` hook checks file-writing tools (Write, Edit, MultiEdit, NotebookEdit), not shell commands.
 - Hooks declared inside an agent file were not run in tests with Claude Code 2.1.293, so the guard is a project-level hook.
 - Agent teams are an experimental Claude Code feature; behaviour may change between versions.

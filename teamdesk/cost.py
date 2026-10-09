@@ -162,3 +162,39 @@ def render(rep, budget, short=False):
         lines.append(f"(no transcripts in {rep['dir']})")
     lines += ["", f"total raw {fmt(rep['raw'])} · weighted = input 1x, cache read 0.1x, cache write 1.25x, output 5x"]
     return "\n".join(lines)
+
+
+ALERT_TURNS = 40          # a governed subagent should stay below its action limit
+ALERT_WEIGHTED = 1_500_000
+
+
+def global_report(hours=24, root=None):
+    """Every subagent transcript in every project, active in the last `hours`."""
+    root = root or projects_root()
+    since = datetime.now(timezone.utc) - timedelta(hours=hours)
+    rows = []
+    for path in glob.glob(os.path.join(root, "*", "*", "subagents", "*.jsonl")):
+        if os.path.getmtime(path) < since.timestamp():
+            continue
+        t = read_transcript(path)
+        if not t["turns"]:
+            continue
+        project = os.path.basename(os.path.dirname(os.path.dirname(os.path.dirname(path))))
+        t["project"] = re.sub(r"^[A-Za-z]--Users-[^-]+-", "", project)[-40:]
+        t["alert"] = t["turns"] > ALERT_TURNS or weighted(t) > ALERT_WEIGHTED or not (t["name"] or "").startswith("td-")
+        rows.append(t)
+    rows.sort(key=lambda t: t["last"] or since, reverse=True)
+    return {"hours": hours, "rows": rows, "weighted": sum(weighted(t) for t in rows), "raw": sum(raw(t) for t in rows)}
+
+
+def render_global(rep):
+    lines = [f"Subagents in the last {rep['hours']:g} h (all projects): {len(rep['rows'])}, "
+             f"{fmt(rep['raw'])} raw / {fmt(rep['weighted'])} weighted tokens",
+             f"{'':2}{'agent':22} {'model':8} {'turns':>5} {'weighted':>9}  project"]
+    for t in rep["rows"]:
+        flag = "!!" if t["alert"] else "  "
+        lines.append(f"{flag}{(t['name'] or '?')[:22]:22} {short_model(t['models']):8} {t['turns']:>5} "
+                     f"{fmt(weighted(t)):>9}  {t['project']}")
+    if any(t["alert"] for t in rep["rows"]):
+        lines.append(f"!! = over {ALERT_TURNS} turns, over {fmt(ALERT_WEIGHTED)} weighted, or not a governed td-* agent")
+    return "\n".join(lines)
